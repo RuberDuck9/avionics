@@ -1,43 +1,9 @@
-# This version of rules.mk expects the following to be defined before
-# inclusion..
-### REQUIRED ###
-# OPENCM3_DIR - duh
-# PROJECT - will be the basename of the output elf, eg usb-gadget0-stm32f4disco
-# CFILES - basenames only, eg main.c blah.c
-# CXXFILES - same for C++ files. Must have cxx suffix!
-# DEVICE - the full device name, eg stm32f405ret6
-#  _or_
-# LDSCRIPT - full path, eg ../../examples/stm32/f4/stm32f4-discovery/stm32f4-discovery.ld
-# OPENCM3_LIB - the basename, eg: opencm3_stm32f4
-# OPENCM3_DEFS - the target define eg: -DSTM32F4
-# ARCH_FLAGS - eg, -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16
-#    (ie, the full set of cpu arch flags, _none_ are defined in this file)
-#
-### OPTIONAL ###
-# INCLUDES - fully formed -I paths, if you want extra, eg -I../shared
-# BUILD_DIR - defaults to bin, should set this if you are building multiarch
-# OPT - full -O flag, defaults to -Os
-# CSTD - defaults -std=c99
-# CXXSTD - no default.
-# OOCD_INTERFACE - eg stlink-v2
-# OOCD_TARGET - eg stm32f4x
-#    both only used if you use the "make flash" target.
-# OOCD_FILE - eg my.openocd.cfg
-#    This overrides interface/target above, and is used as just -f FILE
-### TODO/FIXME/notes ###
-# No support for stylecheck.
-# No support for BMP/texane/random flash methods, no plans either
-# No support for magically finding the library.
-# C++ hasn't been actually tested with this..... sorry bout that. ;)
-# Second expansion/secondary not set, add this if you need them.
-
 BUILD_DIR ?= bin
 OPT ?= -Os
 CSTD ?= -std=c99
 
-# Be silent per default, but 'make V=1' will show all compiler calls.
-# If you're insane, V=99 will print out all sorts of things.
-V?=0
+# Log Level
+V?=1
 ifeq ($(V),0)
 Q	:= @
 NULL	:= 2>/dev/null
@@ -85,6 +51,7 @@ TGT_LDFLAGS += -T$(LDSCRIPT) -L$(OPENCM3_DIR)/lib -nostartfiles
 TGT_LDFLAGS += $(ARCH_FLAGS)
 TGT_LDFLAGS += -specs=nano.specs
 TGT_LDFLAGS += -Wl,--gc-sections
+
 # OPTIONAL
 #TGT_LDFLAGS += -Wl,-Map=$(PROJECT).map
 ifeq ($(V),99)
