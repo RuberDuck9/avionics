@@ -3,7 +3,7 @@ OPT ?= -Os
 CSTD ?= -std=c99
 
 # Log Level
-V?=1
+V?=0
 ifeq ($(V),0)
 Q	:= @
 NULL	:= 2>/dev/null
