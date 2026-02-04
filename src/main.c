@@ -1,12 +1,14 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/i2c.h>
+
+#define bme280_addr 0x70
 
 static void sanity_check(void){ // toggle port c pin 13
 
 	int i,j = 0;
 	
 	rcc_periph_clock_enable(RCC_GPIOC);
-
 	gpio_set(GPIOC, GPIO13);
 
 	while (j < 10){
@@ -20,9 +22,38 @@ static void sanity_check(void){ // toggle port c pin 13
 	}
 }
 
+static void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
+
+	rcc_periph_clock_enable(RCC_GPIOC);
+	gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
+	gpio_set_af(GPIOC, GPIO_AF4, GPIO6 | GPIO7);
+
+	rcc_periph_clock_enable(RCC_I2C1);
+	i2c_peripheral_disable(I2C1);
+	i2c_set_speed(I2C1, i2c_speed_fmp_1m, rcc_apb1_frequency / 1e6);
+	i2c_peripheral_enable(I2C1);
+}
+
+static int initialize_bme280(void){ // check for nominal chip connection
+
+	uint8_t bme280_chip_id_addr = 0xD0;
+	uint8_t bme280_chip_id;
+
+	i2c_transfer7(I2C1, bme280_addr, &bme280_chip_id_addr, sizeof(bme280_chip_id_addr), &bme280_chip_id, sizeof(bme280_chip_id)); 
+
+	if (bme280_chip_id == 0x60) {
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
 int main(void){
 
 	sanity_check();
+
+	configure_i2c();
 
 	return 0;
 }
