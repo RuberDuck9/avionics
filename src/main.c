@@ -4,6 +4,14 @@
 
 #define bme280_addr 0x70
 
+struct bme280{
+	uint8_t temperature;
+	uint8_t pressure;
+	uint8_t humidity;
+};
+
+typedef struct bme280 BME280;
+
 static void sanity_check(void){ // toggle port c pin 13
 
 	int i,j = 0;
@@ -34,17 +42,21 @@ static void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
 	i2c_peripheral_enable(I2C1);
 }
 
-static int initialize_bme280(void){ // check for nominal chip connection
+static int read_bme280(BME280*){ // check for nominal chip connection
 
 	uint8_t bme280_chip_id_addr = 0xD0;
 	uint8_t bme280_chip_id;
 
 	i2c_transfer7(I2C1, bme280_addr, &bme280_chip_id_addr, sizeof(bme280_chip_id_addr), &bme280_chip_id, sizeof(bme280_chip_id)); 
 
-	if (bme280_chip_id == 0x60) {
-		return 0;
+	if (bme280_chip_id == 0x60){
+
+		uint8_t buffer[8];
+		uint8_t reg = 0xF7;
+		
+		i2c_transfer7(I2C1, bme280_addr, &reg, sizeof(reg), &buffer, sizeof(buffer));
 	}
-	else {
+	else{
 		return 1;
 	}
 }
