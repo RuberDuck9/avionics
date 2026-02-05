@@ -12,22 +12,23 @@ struct bme280{
 
 typedef struct bme280 BME280;
 
-static void sanity_check(void){ // toggle port c pin 13
+static void strobe(int n){ // toggle pin 5 on port a
 
-	int i,j = 0;
-	
-	rcc_periph_clock_enable(RCC_GPIOC);
-	gpio_set(GPIOC, GPIO13);
+	rcc_periph_clock_enable(RCC_GPIOA);
+	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5);
+	gpio_set(GPIOA, GPIO5);
 
-	while (j < 10){
-		for (i = 0; i < 10000000; i++){
+	int j = 2 * n;
+
+	while (j > 0){
+		for (int i = 0; i < 999999; i++){
 			__asm__("nop");
-
-			gpio_toggle(GPIOC, GPIO13);
-
-			j++;
 		}
+		gpio_toggle(GPIOA, GPIO5);
+		j--;
 	}
+
+	gpio_clear(GPIOA, GPIO5);
 }
 
 static void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
@@ -42,7 +43,7 @@ static void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
 	i2c_peripheral_enable(I2C1);
 }
 
-static int read_bme280(BME280*){ // check for nominal chip connection
+static int read_bme280(BME280*){ 
 
 	uint8_t bme280_chip_id_addr = 0xD0;
 	uint8_t bme280_chip_id;
@@ -54,7 +55,7 @@ static int read_bme280(BME280*){ // check for nominal chip connection
 		uint8_t buffer[8];
 		uint8_t reg = 0xF7;
 		
-		i2c_transfer7(I2C1, bme280_addr, &reg, sizeof(reg), &buffer, sizeof(buffer));
+		i2c_transfer7(I2C1, bme280_addr, &reg, sizeof(reg), buffer, sizeof(buffer));
 	}
 	else{
 		return 1;
@@ -63,9 +64,7 @@ static int read_bme280(BME280*){ // check for nominal chip connection
 
 int main(void){
 
-	sanity_check();
-
-	configure_i2c();
+	strobe(3);
 
 	return 0;
 }
