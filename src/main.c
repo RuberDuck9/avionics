@@ -39,8 +39,8 @@ typedef struct bme280 BME280;
 void strobe(int n);
 void configure_i2c(void);
 int read_bme280(BME280 *bme280);
-void trim_bme280(BME280 *bme280);
-void compensate_bme280(BME280 *bme280);
+int trim_bme280(BME280 *bme280);
+int compensate_bme280(BME280 *bme280);
 
 int main(void){
 
@@ -50,9 +50,9 @@ int main(void){
 
 	BME280 bme280;
 
-	uint8_t a = read_bme280(&bme280);
-	trim_bme280(&bme280);
-	compensate_bme280(&bme280);
+	uint8_t bme280_error_status = read_bme280(&bme280);
+	bme280_error_status = trim_bme280(&bme280);
+	bme280_error_status = compensate_bme280(&bme280);
 
 	volatile int32_t b = bme280.temperature;
 
@@ -116,7 +116,7 @@ int read_bme280(BME280 *bme280){
 	}
 }
 
-void trim_bme280(BME280 *bme280){
+int trim_bme280(BME280 *bme280){
 
 	uint8_t buffer[32];
 	uint8_t nvm1 = 0x88;
@@ -128,15 +128,44 @@ void trim_bme280(BME280 *bme280){
 	bme280->dig_T1 = (uint16_t)(buffer[1] << 8 | buffer[0]);
 	bme280->dig_T2 = (int16_t)(buffer[3] << 8 | buffer[2]);
 	bme280->dig_T3 = (int16_t)(buffer[5] << 8 | buffer[4]);
+
+	return 0;
 }
 
-void compensate_bme280(BME280 *bme280){
+int compensate_bme280(BME280 *bme280){
 
-	int32_t var1, var2, T;
+	int64_t var1, var2, T, P, H;
 	var1 = ((((bme280->temperature_raw>>3) - ((int32_t)bme280->dig_T1<<1))) * ((int32_t)bme280->dig_T2)) >> 11;
 	var2 = (((((bme280->temperature_raw>>4) - ((int32_t)bme280->dig_T1)) * ((bme280->temperature_raw>>4) - ((int32_t)bme280->dig_T1))) >> 12) * ((int32_t)bme280->dig_T3)) >> 14;
 	int32_t t_fine = var1 + var2;
 	T = (t_fine * 5 + 128) >> 8;
 	bme280->t_fine = t_fine;
 	bme280->temperature = T;
+
+	var1 = ((int64_t)t_fine) - 128000;
+	var2 = var1 * var1 * (int64_t)bme280->dig_P6;
+	var2 = var2 + ((var1 * (int64_t)bme280->dig_P5)<<17);
+	var2 = var2 + (((int64_t)bme280->dig_P4)<<35);
+	var1 = ((var1 * var1 * (int64_t)bme280->dig_P3)>>8) + ((var1 * (int64_t)bme280->dig_P2)<<12);
+	var1 = (((((int64_t)1)<<47)+var1))*((int64_t)bme280->dig_P1)>>3;
+	if (var1 == 0){
+		return 1;
+	}
+	else{
+		P = 1048576 - bme280->pressure_raw;
+		P = (((P<<31)-var2)*3125)/var1;
+		var1 = (((int64_t)bme280->dig_P9) * (P>>13) * (P>>13)) >> 25;
+		var2 = (((int64_t)bme280->dig_P8) * P) >> 19;
+		P = ((P + var1 + var2) >> 8) + (((int64_t)bme280->dig_P7)<<4);
+		bme280->pressure = P;
+	}
+
+	P = (t_fine - ((int32_t)76800));
+	P = (((((bme280->humidity_raw << 14) - (((int32_t)bme280->dig_H4) << 20) - (((int32_t)bme280->dig_H5) * P)) + ((int32_t)16384)) >> 15) * (((((((P * ((int32_t)bme280->dig_H6)) >> 10) * (((P * ((int32_t)bme280->dig_H3)) >> 11) + ((int32_t)32768))) >> 10) + ((int32_t)2097152)) * ((int32_t)bme280->dig_H2) + 8192) >> 14));
+	P = (P - (((((P >> 15) * (P >> 15)) >> 7) * ((int32_t)bme280->dig_H1)) >> 4));
+	P = (P < 0 ? 0 : P);
+	P = (P > 419430400 ? 419430400 : P);
+	bme280->pressure = P;
+
+	return 0;
 }
