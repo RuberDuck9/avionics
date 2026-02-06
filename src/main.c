@@ -2,17 +2,66 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/i2c.h>
 
-#define bme280_addr 0x70
+#define bme280_addr 0x76 // sdo -> GND
 
 struct bme280{
-	uint8_t temperature;
-	uint8_t pressure;
-	uint8_t humidity;
+	uint32_t temperature_raw;
+	uint32_t pressure_raw;
+	uint16_t humidity_raw;
+
+	uint16_t dig_T1;
+	int16_t dig_T2;
+	int16_t dig_T3;
+	uint16_t dig_P1;
+	int16_t dig_P2;
+	int16_t dig_P3;
+	int16_t dig_P4;
+	int16_t dig_P5;
+	int16_t dig_P6;
+	int16_t dig_P7;
+	int16_t dig_P8;
+	int16_t dig_P9;
+	uint8_t dig_H1;
+	int16_t dig_H2;
+	uint8_t dig_H3;
+	int16_t dig_H4;
+	int16_t dig_H5;
+	int8_t dig_H6;
+
+	int32_t t_fine;
+	int32_t temperature;
+	int32_t pressure;
+	int32_t humidity;
 };
 
 typedef struct bme280 BME280;
 
-static void strobe(int n){ // toggle pin 5 on port a
+void strobe(int n);
+void configure_i2c(void);
+int read_bme280(BME280 *bme280);
+void trim_bme280(BME280 *bme280);
+void compensate_bme280(BME280 *bme280);
+
+int main(void){
+
+	strobe(3);
+
+	configure_i2c();
+
+	BME280 bme280;
+
+	uint8_t a = read_bme280(&bme280);
+	trim_bme280(&bme280);
+	compensate_bme280(&bme280);
+
+	volatile int32_t b = bme280.temperature;
+
+	while(1);
+
+	return 0;
+}
+
+void strobe(int n){ // toggle pin 5 on port a
 
 	rcc_periph_clock_enable(RCC_GPIOA);
 	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO5);
@@ -31,40 +80,63 @@ static void strobe(int n){ // toggle pin 5 on port a
 	gpio_clear(GPIOA, GPIO5);
 }
 
-static void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
+void configure_i2c(void){ // setup I2C1 to run on port C in fmp mode
 
-	rcc_periph_clock_enable(RCC_GPIOC);
-	gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
-	gpio_set_af(GPIOC, GPIO_AF4, GPIO6 | GPIO7);
+	rcc_periph_clock_enable(RCC_GPIOB);
+	gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO8 | GPIO9);
+	gpio_set_af(GPIOB, GPIO_AF4, GPIO8 | GPIO9);
 
 	rcc_periph_clock_enable(RCC_I2C1);
 	i2c_peripheral_disable(I2C1);
-	i2c_set_speed(I2C1, i2c_speed_fmp_1m, rcc_apb1_frequency / 1e6);
+	i2c_set_speed(I2C1, i2c_speed_fm_400k, rcc_apb1_frequency / 1e6);
 	i2c_peripheral_enable(I2C1);
 }
 
-static int read_bme280(BME280*){ 
+int read_bme280(BME280 *bme280){
 
-	uint8_t bme280_chip_id_addr = 0xD0;
-	uint8_t bme280_chip_id;
+	uint8_t bme280_id;
+	uint8_t bme280_id_addr = 0xD0;
+	uint8_t bme280_burst_read_addr = 0xF7;
+	uint8_t buffer[8];
+	int32_t temperature_raw, pressure_raw, humidity_raw;
+	
+	i2c_transfer7(I2C1, bme280_addr, &bme280_id_addr, sizeof(bme280_id_addr), &bme280_id, sizeof(bme280_id)); 
 
-	i2c_transfer7(I2C1, bme280_addr, &bme280_chip_id_addr, sizeof(bme280_chip_id_addr), &bme280_chip_id, sizeof(bme280_chip_id)); 
-
-	if (bme280_chip_id == 0x60){
-
-		uint8_t buffer[8];
-		uint8_t reg = 0xF7;
+	if (bme280_id == 0x60){
+		i2c_transfer7(I2C1, bme280_addr, &bme280_burst_read_addr, sizeof(bme280_burst_read_addr), buffer, sizeof(buffer)); 
 		
-		i2c_transfer7(I2C1, bme280_addr, &reg, sizeof(reg), buffer, sizeof(buffer));
+		bme280->temperature_raw = (buffer[3]<<12)|(buffer[4]<<4)|(buffer[5]>>4);
+		bme280->pressure_raw = (buffer[0]<<12)|(buffer[1]<<4)|(buffer[2]>>4);
+		bme280->humidity_raw = (buffer[6]<<8)|(buffer[7]);
+
+		return 0;
 	}
 	else{
 		return 1;
 	}
 }
 
-int main(void){
+void trim_bme280(BME280 *bme280){
 
-	strobe(3);
+	uint8_t buffer[32];
+	uint8_t nvm1 = 0x88;
+	uint8_t nvm2 = 0xE1;
 
-	return 0;
+	i2c_transfer7(I2C1, bme280_addr, &nvm1, 1, buffer, 25);
+	i2c_transfer7(I2C1, bme280_addr, &nvm2, 1, buffer + 25, 7);
+
+	bme280->dig_T1 = (uint16_t)(buffer[1] << 8 | buffer[0]);
+	bme280->dig_T2 = (int16_t)(buffer[3] << 8 | buffer[2]);
+	bme280->dig_T3 = (int16_t)(buffer[5] << 8 | buffer[4]);
+}
+
+void compensate_bme280(BME280 *bme280){
+
+	int32_t var1, var2, T;
+	var1 = ((((bme280->temperature_raw>>3) - ((int32_t)bme280->dig_T1<<1))) * ((int32_t)bme280->dig_T2)) >> 11;
+	var2 = (((((bme280->temperature_raw>>4) - ((int32_t)bme280->dig_T1)) * ((bme280->temperature_raw>>4) - ((int32_t)bme280->dig_T1))) >> 12) * ((int32_t)bme280->dig_T3)) >> 14;
+	int32_t t_fine = var1 + var2;
+	T = (t_fine * 5 + 128) >> 8;
+	bme280->t_fine = t_fine;
+	bme280->temperature = T;
 }
