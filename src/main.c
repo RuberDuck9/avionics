@@ -18,8 +18,9 @@ int main(void){
 	}
 
 	while(1){
-		for (int i = 0; i < 999999; i++) __asm__("nop");
+		for (int i = 0; i < 59999; i++) __asm__("nop");
 		bme280_measure(&bme280);
+		strobe(1);
 	}
 
 	return 0;
@@ -34,7 +35,7 @@ void strobe(int n){
 	int j = 2 * n;
 
 	while (j > 0){
-		for (int i = 0; i < 999999; i++){
+		for (int i = 0; i < 99999; i++){
 			__asm__("nop");
 		}
 		gpio_toggle(GPIOA, GPIO5);
