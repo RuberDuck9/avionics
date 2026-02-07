@@ -58,6 +58,8 @@ ifeq ($(V),99)
 TGT_LDFLAGS += -Wl,--print-gc-sections
 endif
 
+LDFLAGS += -u _printf_float
+
 # Linker script generator fills this in for us.
 ifeq (,$(DEVICE))
 LDLIBS += -l$(OPENCM3_LIB)
@@ -65,6 +67,7 @@ endif
 # nosys is only in newer gcc-arm-embedded...
 #LDLIBS += -specs=nosys.specs
 LDLIBS += -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+LDLIBS += -lm
 
 # Burn in legacy hell fortran modula pascal yacc idontevenwat
 .SUFFIXES:
