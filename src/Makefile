@@ -1,4 +1,4 @@
-PROJECT = blink
+PROJECT = avionics
 BUILD_DIR = bin
 
 CFILES = main.c
