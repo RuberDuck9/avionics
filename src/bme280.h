@@ -10,7 +10,6 @@ static uint8_t bme280_ctrl_hum_reg_addr = 0xF2;
 static uint8_t bme280_config_reg_addr = 0xF5;
 static uint8_t bme280_ctrl_meas_reg_addr = 0xF4;
 
-
 struct bme280{
 	uint32_t temperature_raw;
 	uint32_t pressure_raw;

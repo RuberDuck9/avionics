@@ -4,7 +4,6 @@ void string_reverse(char* string, int length);
 int int_to_string(int x, char* string, int digits);
 void float_to_string(float input, char* string, int decimals);
 
-
 void string_reverse(char* string, int length){
 
 	int i = 0, j = length - 1, temporary;
