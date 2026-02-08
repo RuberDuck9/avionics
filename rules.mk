@@ -19,7 +19,6 @@ OBJDUMP	= $(PREFIX)objdump
 OOCD	?= openocd
 
 # Custom Flags
-LDFLAGS += -u _printf_float
 LDLIBS += -lm
 
 OPENCM3_INC = $(OPENCM3_DIR)/include

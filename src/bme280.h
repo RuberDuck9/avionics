@@ -1,5 +1,3 @@
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/i2c.h>
 
 static uint8_t bme280_addr = 0x76; // sdo -> GND
@@ -61,19 +59,25 @@ int bme280_measure(BME280 *bme280){
 	if (bme280_read_raw(bme280) == 0){
 		if (bme280->temperature_raw == 0x8000) bme280->temperature = 0;
 		else{
-			bme280_compensate_temperature(bme280);
+			if (bme280_compensate_temperature(bme280) != 0){
+				return 2;
+			}
 			bme280->temperature = bme280->temperature_compensated / 100.0f;
 		}
 
 		if (bme280->pressure_raw == 0x8000) bme280->pressure = 0;
 		else{
-			bme280_compensate_pressure(bme280);
+			if (bme280_compensate_pressure(bme280) != 0){
+				return 3;
+			}
 			bme280->pressure = bme280->pressure_compensated / 256.0f;
 		}
 
 		if (bme280->humidity_raw == 0x800) bme280->humidity = 0;
 		else{
-			bme280_compensate_humidity(bme280);
+			if (bme280_compensate_humidity(bme280) != 0){
+				return 4;
+			}
 			bme280->humidity = bme280->humidity_compensated / 1024.0f;
 		}
 	}
