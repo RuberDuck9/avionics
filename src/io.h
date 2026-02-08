@@ -2,12 +2,14 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/i2c.h>
 #include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/spi.h>
 
 void strobe(int n);
 void configure_i2c(void);
 void configure_usart(void);
 void usart_print(char *buffer);
 void usart_println(char *buffer);
+void configure_spi(void);
 
 void strobe(int n){
 
@@ -70,4 +72,18 @@ void usart_println(char *buffer){
 
 	usart_print(buffer);
 	usart_print("\r\n");
+}
+
+void configure_spi(void){
+
+	rcc_periph_clock_enable(RCC_SPI1);
+	rcc_periph_clock_enable(RCC_GPIOA);
+	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
+	gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
+	
+	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO8);
+	gpio_set(GPIOA, GPIO8);
+
+	spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_256, SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE, SPI_CR1_CPHA_CLK_TRANSITION_1, SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+	
 }
