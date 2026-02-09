@@ -19,6 +19,7 @@ void string_reverse(char* string, int length){
 int int_to_string(int x, char string[], int digits){
 	
 	int i = 0;
+
 	while (x){
 		string[i++] = (x % 10) + '0';
 		x = x / 10;
@@ -30,6 +31,7 @@ int int_to_string(int x, char string[], int digits){
 
 	string_reverse(string, i);
 	string[i] = '\0';
+
 	return i;
 }
 
@@ -40,6 +42,11 @@ void float_to_string(float input, char* string, int decimals){
 	float floating_part = input - (float)(integer_part);
 
 	int i = int_to_string(integer_part, string, 0);
+
+	if (integer_part == 0){
+		string[i] = '0';
+		i++;
+	}
 
 	if (decimals != 0){
 		string[i] = '.';
